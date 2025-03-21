@@ -136,14 +136,14 @@ init python:
         
         # Send the request and get the response - WITH SSL CONTEXT
         with urllib.request.urlopen(req, context=ssl_context) as response:
+            if response.status != 200:
+                print(f"Error: {response.status}")
+                return placeholder
+            
             # Read and decode the response
             response_data = response.read().decode('utf-8')
             # Parse the JSON response
             response_json = json.loads(response_data)
-            if 'candidates' not in  response_json:
-                print(f"Error: {response_json['error']['message']}")
-                return placeholder
-            
             response_json_data = response_json['candidates'][0]['content']['parts'][0]['inlineData']['data']
             image_data = response_json_data
             # Decode base64 and save to file
@@ -209,6 +209,8 @@ label town_square:
             jump shop
         "Head to the forest":
             jump forest
+        "Explore a new area":
+            jump explore_new_area
         "Go back home":
             jump start
 
@@ -259,6 +261,62 @@ label forest:
     else:
         "It's too dark to go further. You need a light source."
         jump town_square
+# Define the new exploration functionality
+label explore_new_area:
+    # Show a loading screen while content is generated
+    show screen loading
+    
+    # Randomly select an area type
+    $ area_type = renpy.random.choice(["forest", "cave", "mountain", "village", "ruins", "lake", "desert"])
+    
+    # Define possible features, times, and weather conditions for variety
+    $ features = {
+        "forest": ["dense", "sparse", "enchanted", "dark"],
+        "cave": ["spooky", "crystal", "underground", "lava"],
+        "mountain": ["snowy", "rocky", "misty", "volcanic"],
+        "village": ["bustling", "abandoned", "coastal", "mountain"],
+        "ruins": ["ancient", "crumbling", "overgrown", "desert"],
+        "lake": ["serene", "misty", "frozen", "volcanic"],
+        "desert": ["sandy", "rocky", "oasis", "dune"]
+    }
+    $ times = ["daytime", "nighttime", "dawn", "dusk"]
+    $ weathers = ["clear", "rainy", "foggy", "snowy"]
+    
+    # Randomly select a feature, time, and weather
+    $ feature = renpy.random.choice(features.get(area_type, ["mysterious"]))
+    $ time = renpy.random.choice(times)
+    $ weather = renpy.random.choice(weathers)
+    
+    # Create a prompt for the image generation
+    $ image_prompt = f"A {feature} {area_type} at {time} with {weather} weather. Style: medieval fantasy, detailed illustration."
+    
+    # Fetch and scale the image
+    $ new_area_bg_path = fetch_image(image_prompt)
+    $ new_area_bg_file = get_image(new_area_bg_path)
+    $ new_area_bg = im.Scale(new_area_bg_file, config.screen_width, config.screen_height)
+    
+    # Create a prompt for the text description
+    $ text_prompt = f"Describe a {feature} {area_type} at {time} with {weather} weather in a medieval fantasy setting."
+    $ new_area_text = fetch_text(text_prompt)
+    
+    # Generate a name for the area
+    $ area_name = "The " + feature.capitalize() + " " + area_type.capitalize()
+    
+    # Hide the loading screen and display the new area
+    hide screen loading
+    scene expression new_area_bg with dissolve
+    p "You venture into [area_name]."
+    p "[new_area_text]"
+    
+    # Offer player choices
+    p "What would you like to do?"
+    menu:
+        "Explore further":
+            "You decide to explore this area more, but for now, you return to the town square."
+            jump town_square
+        "Return to town square":
+            jump town_square
+
 
 label meet_stranger:
     show screen loading
