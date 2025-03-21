@@ -49,7 +49,7 @@ init python:
         - str: The path to the file where the generated text is saved.
         """
         # Define the output file path using the prompt's hash
-        output_file = os.path.join(text_dir, f"text_{hash(prompt)}.txt")
+        output_file = os.path.join(text_dir, f"text_{'_'.join(prompt.split(' ')[:2])}.txt")
         
         # Check for cached version
         if os.path.exists(output_file):
@@ -63,7 +63,7 @@ init python:
         payload = {
             "contents": [{
                 "parts": [
-                    {"text": prompt}
+                    {"text": prompt + "Keep it short and concise."}
                 ]
             }]
         }
@@ -72,7 +72,12 @@ init python:
         data = json.dumps(payload).encode('utf-8')
         
         # Create the request object
-        req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
+        req = urllib.request.Request(
+            url, 
+            data=data, 
+            headers={'Content-Type': 'application/json'}, 
+            method='POST'
+        )
         
         # Send the request and get the response - WITH SSL CONTEXT
         with urllib.request.urlopen(req, context=ssl_context) as response:
@@ -90,7 +95,6 @@ init python:
                 
         return generated_text
 
-
     def fetch_image(prompt:str)->str:
         """
         Generate an image using the Gemini API and save it to a file.
@@ -101,7 +105,7 @@ init python:
         Returns:
         - str: The path to the generated image file.
         """
-        output_file = os.path.join(images_dir, f"image_{hash(prompt)}.png")
+        output_file = os.path.join(images_dir, f"image_{'_'.join(prompt.split(' ')[:2])}.png")
         
         # Check for cached version
         if os.path.exists(output_file):
@@ -128,22 +132,38 @@ init python:
         
         # Create the request object
         req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
+
         
         # Send the request and get the response - WITH SSL CONTEXT
         with urllib.request.urlopen(req, context=ssl_context) as response:
             # Read and decode the response
             response_data = response.read().decode('utf-8')
-            
             # Parse the JSON response
             response_json = json.loads(response_data)
+            if 'candidates' not in  response_json:
+                print(f"Error: {response_json['error']['message']}")
+                return placeholder
+            
             response_json_data = response_json['candidates'][0]['content']['parts'][0]['inlineData']['data']
-        
             image_data = response_json_data
             # Decode base64 and save to file
             with open(output_file, 'wb') as f:
                 f.write(base64.b64decode(image_data))
             print(f"Image saved as '{output_file}'")
             return output_file
+    # Function to convert absolute paths to relative paths for Ren'Py
+    def get_image(path):
+        import renpy
+        if os.path.isabs(path):
+            if os.path.exists(path) and path.startswith(renpy.config.gamedir):
+                return os.path.relpath(path, renpy.config.gamedir)
+            else:
+                return "cache/images/placeholder.png"
+        else:
+            if renpy.loadable(path):
+                return path
+            else:
+                return "cache/images/placeholder.png"
 
 # Define characters
 define p = Character("Player")
@@ -157,7 +177,9 @@ default has_lantern = False
 # Game start
 label start:
     show screen loading
-    $ home_bg = fetch_image("A cozy medieval cottage interior with a fireplace, wooden furniture, and a bed. Sunlight streams through a small window. Style: medieval fantasy, detailed illustration.")
+    $ home_bg_path = fetch_image("A cozy medieval cottage interior with a fireplace, wooden furniture, and a bed. Sunlight streams through a small window. Style: medieval fantasy, detailed illustration.")
+    $ home_bg_file = get_image(home_bg_path)
+    $ home_bg = im.Scale(home_bg_file, config.screen_width, config.screen_height)
     $ home_text = fetch_text("Generate a short description of a cozy medieval cottage where the player starts their adventure.")
     hide screen loading
     scene expression home_bg
@@ -172,7 +194,9 @@ label start:
 
 label town_square:
     show screen loading
-    $ town_bg = fetch_image("A bustling medieval town square with market stalls, a central fountain, and timber-framed houses with thatched roofs. Style: medieval fantasy, detailed illustration.")
+    $ town_bg_path = fetch_image("A bustling medieval town square with market stalls, a central fountain, and timber-framed houses with thatched roofs. Style: medieval fantasy, detailed illustration.")
+    $ town_bg_file = get_image(town_bg_path)
+    $ town_bg = im.Scale(town_bg_file, config.screen_width, config.screen_height)
     $ town_text = fetch_text("Generate a short description of a bustling medieval town square in an RPG setting.")
     hide screen loading
     scene expression town_bg
@@ -198,7 +222,9 @@ label talk_villager:
 
 label shop:
     show screen loading
-    $ shop_bg = fetch_image("A medieval shop interior with shelves of goods, a wooden counter, and a merchant. Style: medieval fantasy, detailed illustration.")
+    $ shop_bg_path = fetch_image("A medieval shop interior with shelves of goods, a wooden counter, and a merchant. Style: medieval fantasy, detailed illustration.")
+    $ shop_bg_file = get_image(shop_bg_path)
+    $ shop_bg = im.Scale(shop_bg_file, config.screen_width, config.screen_height)
     $ shop_text = fetch_text("Generate a short description of a medieval shop where the player can buy supplies.")
     hide screen loading
     scene expression shop_bg
@@ -220,7 +246,9 @@ label shop:
 
 label forest:
     show screen loading
-    $ forest_bg = fetch_image("A dense medieval forest with tall trees, a winding path, and dappled sunlight. Style: medieval fantasy, detailed illustration.")
+    $ forest_bg_path = fetch_image("A dense medieval forest with tall trees, a winding path, and dappled sunlight. Style: medieval fantasy, detailed illustration.")
+    $ forest_bg_file = get_image(forest_bg_path)
+    $ forest_bg = im.Scale(forest_bg_file, config.screen_width, config.screen_height)
     $ forest_text = fetch_text("Generate a short description of a mysterious forest in an RPG setting.")
     hide screen loading
     scene expression forest_bg
