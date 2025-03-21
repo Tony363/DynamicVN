@@ -10,60 +10,56 @@ init python:
     import json
     import ssl
     import base64
-    import renpy
-    import hashlib
     
-    def init_settings():
-        # Set the root directory relative to the game directory
-        root_dir = os.path.join(renpy.config.gamedir, "cache")
+    def init_settings()->None:
+        # Set API key directly
+        API_KEY = os.getenv("GEMINI_API_KEY")
+        root_dir = '/home/tony/Desktop/DynamicVN/DynamicVN/game/cache'
+
         text_dir = os.path.join(root_dir, "text")
-        images_dir = os.path.join(root_dir, "images")
-        
-        # Create directories if they don't exist
         if not os.path.exists(text_dir):
             os.makedirs(text_dir)
+
+        images_dir = os.path.join(root_dir, "images")
         if not os.path.exists(images_dir):
             os.makedirs(images_dir)
-        
-        # Define placeholder image path
-        placeholder = os.path.join(images_dir, "placeholder.png")
+        # For testing or if errors occur, use placeholder
+        placeholder = os.path.join(root_dir, "images", "placeholder.png")
         if not os.path.exists(placeholder):
-            print(f"Warning: {placeholder} doesn't exist. Create a placeholder.png in the cache/images directory.")
-        
-        # Get API key from environment variable
-        API_KEY = os.getenv("GEMINI_API_KEY")
-        if not API_KEY:
-            print("Error: GEMINI_API_KEY environment variable not set.")
-        
-        # SSL context setup (unchanged)
+            print(f"Warning: {placeholder} doesn't exist. Create an images/placeholder.png file.")
+
+        # Create an SSL context that doesn't verify certificates (for development only)
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
-        print("WARNING: SSL certificate verification disabled for development. This is not secure for production use.")
         
+        print("WARNING: SSL certificate verification disabled for development. This is not secure for production use.")
         return ssl_context, text_dir, images_dir, placeholder, API_KEY
     
     ssl_context, text_dir, images_dir, placeholder, API_KEY = init_settings()
     
-    def get_hash(prompt):
-        """Generate a consistent hash for a prompt using MD5."""
-        return hashlib.md5(prompt.encode()).hexdigest()
-    
     def fetch_text(prompt: str) -> str:
         """
-        Generate text using the Gemini API and cache it.
-        Returns the generated text content.
+        Generate text using the Gemini 2.0 Flash API and save it to a file.
+
+        Parameters:
+        - prompt (str): The text prompt for generating the text.
+
+        Returns:
+        - str: The path to the file where the generated text is saved.
         """
-        hash_value = get_hash(prompt)
-        output_file = os.path.join(text_dir, f"text_{hash_value}.txt")
+        # Define the output file path using the prompt's hash
+        output_file = os.path.join(text_dir, f"text_{hash(prompt)}.txt")
         
         # Check for cached version
         if os.path.exists(output_file):
             with open(output_file, 'r') as f:
                 return f.read()
         
-        # Construct the API request
+        # Construct the URL with the API key for the text generation model
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
+        
+        # Create the JSON payload for text generation
         payload = {
             "contents": [{
                 "parts": [
@@ -71,38 +67,51 @@ init python:
                 ]
             }]
         }
+        
+        # Convert payload to JSON string and encode to bytes
         data = json.dumps(payload).encode('utf-8')
+        
+        # Create the request object
         req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
         
-        # Send request and process response
+        # Send the request and get the response - WITH SSL CONTEXT
         with urllib.request.urlopen(req, context=ssl_context) as response:
+            # Read and decode the response
             response_data = response.read().decode('utf-8')
+            
+            # Parse the JSON response and extract the generated text
             response_json = json.loads(response_data)
             generated_text = response_json['candidates'][0]['content']['parts'][0]['text']
             
-            # Cache the text
+            # Save the generated text to a file
             with open(output_file, 'w') as f:
                 f.write(generated_text)
             print(f"Text saved as '{output_file}'")
-        
+                
         return generated_text
-    
-    def fetch_image(prompt: str) -> str:
+
+
+    def fetch_image(prompt:str)->str:
         """
-        Generate an image using the Gemini API and cache it.
-        Returns the relative path to the image file.
+        Generate an image using the Gemini API and save it to a file.
+
+        Parameters:
+        - prompt (str): The text prompt for generating the image.
+
+        Returns:
+        - str: The path to the generated image file.
         """
-        hash_value = get_hash(prompt)
-        output_file = os.path.join(images_dir, f"image_{hash_value}.png")
-        relative_path = os.path.relpath(output_file, renpy.config.gamedir)
+        output_file = os.path.join(images_dir, f"image_{hash(prompt)}.png")
         
         # Check for cached version
         if os.path.exists(output_file):
-            print(f"Using cached image: {relative_path}")
-            return relative_path
+            print(f"Using cached image: {output_file}")
+            return output_file
         
-        # Construct the API request
+        # Construct the URL with the API key
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key={API_KEY}"
+        
+        # Create the JSON payload
         payload = {
             "contents": [{
                 "parts": [
@@ -113,21 +122,28 @@ init python:
                 "responseModalities": ["Text", "Image"]
             }
         }
+        
+        # Convert payload to JSON string and encode to bytes
         data = json.dumps(payload).encode('utf-8')
+        
+        # Create the request object
         req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
         
-        # Send request and process response
+        # Send the request and get the response - WITH SSL CONTEXT
         with urllib.request.urlopen(req, context=ssl_context) as response:
+            # Read and decode the response
             response_data = response.read().decode('utf-8')
-            response_json = json.loads(response_data)
-            image_data = response_json['candidates'][0]['content']['parts'][0]['inlineData']['data']
             
-            # Cache the image
+            # Parse the JSON response
+            response_json = json.loads(response_data)
+            response_json_data = response_json['candidates'][0]['content']['parts'][0]['inlineData']['data']
+        
+            image_data = response_json_data
+            # Decode base64 and save to file
             with open(output_file, 'wb') as f:
                 f.write(base64.b64decode(image_data))
             print(f"Image saved as '{output_file}'")
-        
-        return relative_path
+            return output_file
 
 # Define characters
 define p = Character("Player")
