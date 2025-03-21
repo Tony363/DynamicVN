@@ -37,3 +37,6 @@ label start:
     scene expression safe_path
     
     # ... rest of your code ... 
+
+    $ player_transformed = Transform(player_avatar_file, xalign=0.5, yalign=1.0)
+    show expression player_transformed as player 

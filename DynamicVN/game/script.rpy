@@ -2,7 +2,7 @@
 screen loading:
     text "Loading..." align (0.5, 0.5)
 
-# Python block for API calls and caching
+# Python block for API calls, caching, and custom character class
 init python:
     import os
     import urllib.request
@@ -10,7 +10,7 @@ init python:
     import json
     import ssl
     import base64
-    
+
     def init_settings()->None:
         # Set API key directly
         API_KEY = os.getenv("GEMINI_API_KEY")
@@ -37,6 +37,17 @@ init python:
         return ssl_context, text_dir, images_dir, placeholder, API_KEY
     
     ssl_context, text_dir, images_dir, placeholder, API_KEY = init_settings()
+    
+    # Dictionary to store avatar file paths, populated at runtime
+    avatar_files = {}
+    
+    # Define avatar prompts for each character
+    avatar_prompts = {
+        "player": "A portrait of a brave adventurer with a sword and leather armor. Style: medieval fantasy, detailed illustration.",
+        "shopkeeper": "A portrait of a friendly shopkeeper with an apron and a welcoming smile. Style: medieval fantasy, detailed illustration.",
+        "villager": "A portrait of a simple villager wearing peasant clothes and a hat. Style: medieval fantasy, detailed illustration.",
+        "stranger": "A portrait of a cloaked figure with a hood, casting a shadow over their face. Style: medieval fantasy, detailed illustration."
+    }
     
     def fetch_text(prompt: str) -> str:
         """
@@ -151,6 +162,7 @@ init python:
                 f.write(base64.b64decode(image_data))
             print(f"Image saved as '{output_file}'")
             return output_file
+
     # Function to convert absolute paths to relative paths for Ren'Py
     def get_image(path):
         import renpy
@@ -164,12 +176,23 @@ init python:
                 return path
             else:
                 return "cache/images/placeholder.png"
+    
+    # Callback function to show/hide avatars
+    def avatar_callback(event, interact=True, **kwargs):
+        character = kwargs.get("who", None)
+        if character and character.name in avatar_files:
+            avatar_path = avatar_files[character.name]
+            avatar_tag = "avatar_" + character.name.lower().replace(" ", "_")
+            if event == "begin":
+                renpy.show(avatar_path, at_list=[center], layer="screens", tag=avatar_tag)
+            elif event == "end":
+                renpy.hide(avatar_tag, layer="screens")
 
-# Define characters
-define p = Character("Player")
-define s = Character("Shopkeeper")
-define v = Character("Villager")
-define m = Character("Mysterious Stranger")
+# Define characters using the callback
+define p = Character("Player", callback=avatar_callback)
+define s = Character("Shopkeeper", callback=avatar_callback)
+define v = Character("Villager", callback=avatar_callback)
+define m = Character("Mysterious Stranger", callback=avatar_callback)
 
 # Define inventory variable
 default has_lantern = False
@@ -177,6 +200,20 @@ default has_lantern = False
 # Game start
 label start:
     show screen loading
+    
+    # Generate avatars BEFORE assigning to avatar_files
+    $ player_avatar_path = fetch_image(avatar_prompts["player"])
+    $ shopkeeper_avatar_path = fetch_image(avatar_prompts["shopkeeper"])
+    $ villager_avatar_path = fetch_image(avatar_prompts["villager"])
+    $ stranger_avatar_path = fetch_image(avatar_prompts["stranger"])
+    
+    # Store avatar files in the dictionary
+    $ avatar_files["Player"] = get_image(player_avatar_path)
+    $ avatar_files["Shopkeeper"] = get_image(shopkeeper_avatar_path)
+    $ avatar_files["Villager"] = get_image(villager_avatar_path)
+    $ avatar_files["Mysterious Stranger"] = get_image(stranger_avatar_path)
+    
+    # Load initial scene
     $ home_bg_path = fetch_image("A cozy medieval cottage interior with a fireplace, wooden furniture, and a bed. Sunlight streams through a small window. Style: medieval fantasy, detailed illustration.")
     $ home_bg_file = get_image(home_bg_path)
     $ home_bg = im.Scale(home_bg_file, config.screen_width, config.screen_height)
@@ -261,15 +298,10 @@ label forest:
     else:
         "It's too dark to go further. You need a light source."
         jump town_square
-# Define the new exploration functionality
+
 label explore_new_area:
-    # Show a loading screen while content is generated
     show screen loading
-    
-    # Randomly select an area type
     $ area_type = renpy.random.choice(["forest", "cave", "mountain", "village", "ruins", "lake", "desert"])
-    
-    # Define possible features, times, and weather conditions for variety
     $ features = {
         "forest": ["dense", "sparse", "enchanted", "dark"],
         "cave": ["spooky", "crystal", "underground", "lava"],
@@ -281,34 +313,20 @@ label explore_new_area:
     }
     $ times = ["daytime", "nighttime", "dawn", "dusk"]
     $ weathers = ["clear", "rainy", "foggy", "snowy"]
-    
-    # Randomly select a feature, time, and weather
     $ feature = renpy.random.choice(features.get(area_type, ["mysterious"]))
     $ time = renpy.random.choice(times)
     $ weather = renpy.random.choice(weathers)
-    
-    # Create a prompt for the image generation
     $ image_prompt = f"A {feature} {area_type} at {time} with {weather} weather. Style: medieval fantasy, detailed illustration."
-    
-    # Fetch and scale the image
     $ new_area_bg_path = fetch_image(image_prompt)
     $ new_area_bg_file = get_image(new_area_bg_path)
     $ new_area_bg = im.Scale(new_area_bg_file, config.screen_width, config.screen_height)
-    
-    # Create a prompt for the text description
     $ text_prompt = f"Describe a {feature} {area_type} at {time} with {weather} weather in a medieval fantasy setting."
     $ new_area_text = fetch_text(text_prompt)
-    
-    # Generate a name for the area
     $ area_name = "The " + feature.capitalize() + " " + area_type.capitalize()
-    
-    # Hide the loading screen and display the new area
     hide screen loading
     scene expression new_area_bg with dissolve
     p "You venture into [area_name]."
     p "[new_area_text]"
-    
-    # Offer player choices
     p "What would you like to do?"
     menu:
         "Explore further":
@@ -316,7 +334,6 @@ label explore_new_area:
             jump town_square
         "Return to town square":
             jump town_square
-
 
 label meet_stranger:
     show screen loading
