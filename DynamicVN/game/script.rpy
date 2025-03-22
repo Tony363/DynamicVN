@@ -2,6 +2,13 @@
 screen loading:
     text "Loading..." align (0.5, 0.5)
 
+# Add player avatar screen
+screen player_avatar:
+    fixed:
+        xalign 0.95  # Position at right side of screen
+        yalign 0.1   # Position near top
+        image avatar_files.get("Player", "cache/images/placeholder.png")
+
 # Python block for API calls, caching, and custom character class
 init python:
     import os
@@ -213,6 +220,9 @@ label start:
     $ avatar_files["Shopkeeper"] = get_image(shopkeeper_avatar_path)
     $ avatar_files["Villager"] = get_image(villager_avatar_path)
     $ avatar_files["Mysterious Stranger"] = get_image(stranger_avatar_path)
+    
+    # Show player avatar using the screen we defined (not the variable name)
+    show screen player_avatar
     
     # Load initial scene
     $ home_bg_path = fetch_image("A cozy medieval cottage interior with a fireplace, wooden furniture, and a bed. Sunlight streams through a small window. Style: medieval fantasy, detailed illustration.")

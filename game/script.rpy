@@ -40,3 +40,17 @@ label start:
 
     $ player_transformed = Transform(player_avatar_file, xalign=0.5, yalign=1.0)
     show expression player_transformed as player 
+
+# Add this screen definition near your other screen definitions
+screen player_avatar:
+    fixed:
+        xalign 0.95  # Position at right side of screen
+        yalign 0.1   # Position near top
+        image avatar_files.get("Player", "cache/images/placeholder.png")
+
+# Comment out the problematic line (around line 218)
+# show screen player_avatar
+
+# Or replace it with a simple image display if you just want to show the avatar
+$ player_avatar = avatar_files.get("Player", "cache/images/placeholder.png")
+show expression player_avatar at right 
