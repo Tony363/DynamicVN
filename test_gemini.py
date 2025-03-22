@@ -173,7 +173,7 @@ def fetch_image(prompt=None):
 if __name__ == "__main__":
     # Example usage
     prompt = "A medieval knight in full armor, standing on a hill overlooking a battlefield."
-    # generate_and_save_image(prompt)
+    generate_and_save_image(prompt)
 
     # Option 2: Use the default prompt
-    fetch_text("Generate a short description of a cozy medieval cottage where the player starts their adventure.")
+    # fetch_text("Generate a short description of a cozy medieval cottage where the player starts their adventure.")
