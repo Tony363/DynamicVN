@@ -169,7 +169,6 @@ init python:
 
     loading_screen = fetch_image("Fun loading screen wall paper for a medieval rpg")
     loading_screen = get_image(loading_screen)
-    loading_screen = im.Scale(loading_screen, config.screen_width, config.screen_height)
 
 # Define characters
 define p = Character("Player")
@@ -201,7 +200,7 @@ screen say(who, what):
 
 # Define the loading screen
 screen loading:
-    add loading_screen
+    add im.Scale(loading_screen, config.screen_width, config.screen_height)
 
 # Game start
 label start:
@@ -294,6 +293,7 @@ label shop:
         p "Just browsing, thanks."
     jump town_square
     hide screen shopkeeper_avatar
+
 label forest:
     show screen loading
     $ forest_bg_path = fetch_image("A dense medieval forest with tall trees, a winding path, and dappled sunlight. Style: medieval fantasy, detailed illustration.")
@@ -309,7 +309,9 @@ label forest:
         jump meet_stranger
     else:
         "It's too dark to go further. You need a light source."
+        hide screen stranger_avatar
         jump town_square
+        
     hide screen stranger_avatar
 
 label explore_new_area:
@@ -355,5 +357,6 @@ label meet_stranger:
     hide screen loading
     m "[stranger_text]"
     "The stranger vanishes, leaving you with a sense of purpose."
-    "To be continued..."
-    return
+    jump AutoScript
+    # "To be continued..."
+    # return
