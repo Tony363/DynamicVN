@@ -1,0 +1,3 @@
+[submodule "DynamicVN/DynamicVN/game/RenPy-AutoScriptPlugin"]
+	path = DynamicVN/DynamicVN/game/RenPy-AutoScriptPlugin
+	url = https://github.com/Tony363/RenPy-AutoScriptPlugin

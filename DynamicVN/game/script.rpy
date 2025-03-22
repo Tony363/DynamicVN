@@ -1,13 +1,25 @@
-﻿# Define the loading screen
-screen loading:
-    text "Loading..." align (0.5, 0.5)
+﻿# Define transforms for positioning avatars
+init:
+    transform left_position:
+        xalign 0.0
+        yalign 0.0
 
+    transform right_position:
+        xalign 1.0
+        yalign 0.0
+    
 # Add player avatar screen
 screen player_avatar:
-    fixed:
-        xalign 0.95  # Position at right side of screen
-        yalign 0.1   # Position near top
-        image avatar_files.get("Player", "cache/images/placeholder.png")
+    add im.Scale(avatar_files.get("Player", "cache/images/placeholder.png"), 200, 300) at left_position
+
+screen shopkeeper_avatar:
+    add im.Scale(avatar_files.get("Shopkeeper", "cache/images/placeholder.png"), 200, 300) at right_position
+
+screen villager_avatar:
+    add im.Scale(avatar_files.get("Villager", "cache/images/placeholder.png"), 200, 300) at right_position
+
+screen stranger_avatar:
+    add im.Scale(avatar_files.get("Mysterious Stranger", "cache/images/placeholder.png"), 200, 300) at right_position
 
 # Python block for API calls, caching, and custom character class
 init python:
@@ -17,6 +29,13 @@ init python:
     import json
     import ssl
     import base64
+
+    # Create an SSL context that doesn't verify certificates (for development only)
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    # Dictionary to store avatar file paths, populated at runtime
+    avatar_files = {}
 
     def init_settings()->None:
         # Set API key directly
@@ -35,18 +54,11 @@ init python:
         if not os.path.exists(placeholder):
             print(f"Warning: {placeholder} doesn't exist. Create an images/placeholder.png file.")
 
-        # Create an SSL context that doesn't verify certificates (for development only)
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        
+
         print("WARNING: SSL certificate verification disabled for development. This is not secure for production use.")
-        return ssl_context, text_dir, images_dir, placeholder, API_KEY
+        return text_dir, images_dir, placeholder, API_KEY
     
-    ssl_context, text_dir, images_dir, placeholder, API_KEY = init_settings()
-    
-    # Dictionary to store avatar file paths, populated at runtime
-    avatar_files = {}
+    text_dir, images_dir, placeholder, API_KEY = init_settings()
     
     # Define avatar prompts for each character
     avatar_prompts = {
@@ -59,25 +71,14 @@ init python:
     def fetch_text(prompt: str) -> str:
         """
         Generate text using the Gemini 2.0 Flash API and save it to a file.
-
-        Parameters:
-        - prompt (str): The text prompt for generating the text.
-
-        Returns:
-        - str: The path to the file where the generated text is saved.
         """
-        # Define the output file path using the prompt's hash
-        output_file = os.path.join(text_dir, f"text_{'_'.join(prompt.split(' ')[:2])}.txt")
+        output_file = os.path.join(text_dir, f"text_{'_'.join(prompt.split(' ')[:6])}.txt")
         
-        # Check for cached version
         if os.path.exists(output_file):
             with open(output_file, 'r') as f:
                 return f.read()
         
-        # Construct the URL with the API key for the text generation model
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
-        
-        # Create the JSON payload for text generation
         payload = {
             "contents": [{
                 "parts": [
@@ -85,51 +86,33 @@ init python:
                 ]
             }]
         }
-        
-        # Convert payload to JSON string and encode to bytes
         data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
         
-        # Create the request object
-        req = urllib.request.Request(
-            url, 
-            data=data, 
-            headers={'Content-Type': 'application/json'}, 
-            method='POST'
-        )
-        
-        # Send the request and get the response - WITH SSL CONTEXT
         with urllib.request.urlopen(req, context=ssl_context) as response:
-            # Read and decode the response
             response_data = response.read().decode('utf-8')
-            
-            # Parse the JSON response and extract the generated text
             response_json = json.loads(response_data)
             generated_text = response_json['candidates'][0]['content']['parts'][0]['text']
-            
-            # Save the generated text to a file
             with open(output_file, 'w') as f:
                 f.write(generated_text)
             print(f"Text saved as '{output_file}'")
-                
         return generated_text
 
-    def fetch_image(prompt:str)->str:
+    def fetch_image(
+        prompt:str, 
+        output_file:str='gemini-native-image.png'
+    )->None:
         """
         Generate an image using the Gemini API and save it to a file.
 
         Parameters:
+        - api_key (str): The API key for accessing the Gemini API.
         - prompt (str): The text prompt for generating the image.
-
-        Returns:
-        - str: The path to the generated image file.
+        - output_file (str): The name of the file to save the image to. Default is 'gemini-native-image.png'.
         """
-        output_file = os.path.join(images_dir, f"image_{'_'.join(prompt.split(' ')[:2])}.png")
-        
-        # Check for cached version
+        output_file = os.path.join(images_dir, f"image_{'_'.join(prompt.split(' ')[:6])}.png")
         if os.path.exists(output_file):
-            print(f"Using cached image: {output_file}")
             return output_file
-        
         # Construct the URL with the API key
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key={API_KEY}"
         
@@ -150,27 +133,27 @@ init python:
         
         # Create the request object
         req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
-
         
-        # Send the request and get the response - WITH SSL CONTEXT
+        # Send the request and get the response
         with urllib.request.urlopen(req, context=ssl_context) as response:
             if response.status != 200:
                 print(f"Error: {response.status}")
                 return placeholder
-            
             # Read and decode the response
             response_data = response.read().decode('utf-8')
-            # Parse the JSON response
-            response_json = json.loads(response_data)
-            response_json_data = response_json['candidates'][0]['content']['parts'][0]['inlineData']['data']
-            image_data = response_json_data
-            # Decode base64 and save to file
-            with open(output_file, 'wb') as f:
-                f.write(base64.b64decode(image_data))
-            print(f"Image saved as '{output_file}'")
-            return output_file
+            
+        # Parse the JSON response
+        response_json = json.loads(response_data)
+        response_json_data = response_json['candidates'][0]['content']['parts'][0]['inlineData']['data']
+    
+        image_data = response_json_data
+        # Decode base64 and save to file
+        with open(output_file, 'wb') as f:
+            f.write(base64.b64decode(image_data))
+        print(f"Image saved as '{output_file}'")
+        return output_file
 
-    # Function to convert absolute paths to relative paths for Ren'Py
+
     def get_image(path):
         import renpy
         if os.path.isabs(path):
@@ -183,53 +166,64 @@ init python:
                 return path
             else:
                 return "cache/images/placeholder.png"
-    
-    # Callback function to show/hide avatars
-    def avatar_callback(event, interact=True, **kwargs):
-        character = kwargs.get("who", None)
-        if character and character.name in avatar_files:
-            avatar_path = avatar_files[character.name]
-            avatar_tag = "avatar_" + character.name.lower().replace(" ", "_")
-            if event == "begin":
-                renpy.show(avatar_path, at_list=[center], layer="screens", tag=avatar_tag)
-            elif event == "end":
-                renpy.hide(avatar_tag, layer="screens")
 
-# Define characters using the callback
-define p = Character("Player", callback=avatar_callback)
-define s = Character("Shopkeeper", callback=avatar_callback)
-define v = Character("Villager", callback=avatar_callback)
-define m = Character("Mysterious Stranger", callback=avatar_callback)
+# Define characters
+define p = Character("Player")
+define s = Character("Shopkeeper", image="shopkeeper")
+define v = Character("Villager", image="villager")
+define m = Character("Mysterious Stranger", image="stranger")
 
-# Define inventory variable
+# Default inventory variable
 default has_lantern = False
+
+# Custom say screen to position NPC side images on the right
+screen say(who, what):
+    style_prefix "say"
+
+    window:
+        id "window"
+
+        if who is not None:
+            window:
+                id "namebox"
+                style "namebox"
+                text who id "who"
+
+        text what id "what"
+
+    if who is not None and who != "Player":
+        add SideImage() xalign 0.9 yalign 0.5  # Position NPC avatars on the right
+
+
+# Define the loading screen
+screen loading:
+    $ loading_screen = fetch_image("A fun loading screen wall paper for a medieval rpg")
+    $ loading_screen = get_image(loading_screen)
+    add im.Scale(loading_screen, config.screen_width, config.screen_height)
 
 # Game start
 label start:
-    # Use the placeholder path we defined in the init block
     show screen loading
     
-    # Generate avatars BEFORE assigning to avatar_files
+    # Generate avatars
     $ player_avatar_path = fetch_image(avatar_prompts["player"])
     $ shopkeeper_avatar_path = fetch_image(avatar_prompts["shopkeeper"])
     $ villager_avatar_path = fetch_image(avatar_prompts["villager"])
     $ stranger_avatar_path = fetch_image(avatar_prompts["stranger"])
-    
-    # Store avatar files in the dictionary
+
+    # Store avatar files
     $ avatar_files["Player"] = get_image(player_avatar_path)
     $ avatar_files["Shopkeeper"] = get_image(shopkeeper_avatar_path)
     $ avatar_files["Villager"] = get_image(villager_avatar_path)
-    $ avatar_files["Mysterious Stranger"] = get_image(stranger_avatar_path)
-    
-    # Show player avatar using the screen we defined (not the variable name)
-    show screen player_avatar
-    
+    $ avatar_files["Mysterious Stranger"] = get_image(stranger_avatar_path)    
     # Load initial scene
     $ home_bg_path = fetch_image("A cozy medieval cottage interior with a fireplace, wooden furniture, and a bed. Sunlight streams through a small window. Style: medieval fantasy, detailed illustration.")
     $ home_bg_file = get_image(home_bg_path)
     $ home_bg = im.Scale(home_bg_file, config.screen_width, config.screen_height)
     $ home_text = fetch_text("Generate a short description of a cozy medieval cottage where the player starts their adventure.")
     hide screen loading
+
+    show screen player_avatar
     scene expression home_bg
     p "[home_text]"
     p "What would you like to do?"
@@ -248,6 +242,7 @@ label town_square:
     $ town_text = fetch_text("Generate a short description of a bustling medieval town square in an RPG setting.")
     hide screen loading
     scene expression town_bg
+
     p "[town_text]"
     p "You see a shop to your left and a forest path to your right. A villager stands nearby."
     menu:
@@ -266,9 +261,11 @@ label talk_villager:
     show screen loading
     $ villager_text = fetch_text("Generate a short dialogue for a villager in a medieval RPG responding to a question about the forest.")
     hide screen loading
+    show screen villager_avatar
     v "[villager_text]"
     p "Interesting. Thanks for the info."
     jump town_square
+    hide screen villager_avatar
 
 label shop:
     show screen loading
@@ -277,6 +274,7 @@ label shop:
     $ shop_bg = im.Scale(shop_bg_file, config.screen_width, config.screen_height)
     $ shop_text = fetch_text("Generate a short description of a medieval shop where the player can buy supplies.")
     hide screen loading
+    show screen shopkeeper_avatar
     scene expression shop_bg
     p "[shop_text]"
     if not has_lantern:
@@ -293,7 +291,7 @@ label shop:
         s "Welcome back! Need anything else?"
         p "Just browsing, thanks."
     jump town_square
-
+    hide screen shopkeeper_avatar
 label forest:
     show screen loading
     $ forest_bg_path = fetch_image("A dense medieval forest with tall trees, a winding path, and dappled sunlight. Style: medieval fantasy, detailed illustration.")
@@ -301,6 +299,7 @@ label forest:
     $ forest_bg = im.Scale(forest_bg_file, config.screen_width, config.screen_height)
     $ forest_text = fetch_text("Generate a short description of a mysterious forest in an RPG setting.")
     hide screen loading
+    show screen stranger_avatar
     scene expression forest_bg
     p "[forest_text]"
     if has_lantern:
@@ -309,6 +308,7 @@ label forest:
     else:
         "It's too dark to go further. You need a light source."
         jump town_square
+    hide screen stranger_avatar
 
 label explore_new_area:
     show screen loading
