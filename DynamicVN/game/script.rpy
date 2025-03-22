@@ -167,6 +167,10 @@ init python:
             else:
                 return "cache/images/placeholder.png"
 
+    loading_screen = fetch_image("Fun loading screen wall paper for a medieval rpg")
+    loading_screen = get_image(loading_screen)
+    loading_screen = im.Scale(loading_screen, config.screen_width, config.screen_height)
+
 # Define characters
 define p = Character("Player")
 define s = Character("Shopkeeper", image="shopkeeper")
@@ -197,9 +201,7 @@ screen say(who, what):
 
 # Define the loading screen
 screen loading:
-    $ loading_screen = fetch_image("A fun loading screen wall paper for a medieval rpg")
-    $ loading_screen = get_image(loading_screen)
-    add im.Scale(loading_screen, config.screen_width, config.screen_height)
+    add loading_screen
 
 # Game start
 label start:
@@ -335,6 +337,7 @@ label explore_new_area:
     $ new_area_text = fetch_text(text_prompt)
     $ area_name = "The " + feature.capitalize() + " " + area_type.capitalize()
     hide screen loading
+
     scene expression new_area_bg with dissolve
     p "You venture into [area_name]."
     p "[new_area_text]"
