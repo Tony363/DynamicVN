@@ -199,6 +199,7 @@ default has_lantern = False
 
 # Game start
 label start:
+    # Use the placeholder path we defined in the init block
     show screen loading
     
     # Generate avatars BEFORE assigning to avatar_files
