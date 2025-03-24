@@ -8,6 +8,10 @@ init:
         xalign 1.0
         yalign 0.0
     
+    transform center_position:
+        xalign 0.5
+        yalign 0.5
+    
 # Add player avatar screen
 screen player_avatar:
     add im.Scale(avatar_files.get("Player", "cache/images/placeholder.png"), 200, 300) at left_position
@@ -21,6 +25,10 @@ screen villager_avatar:
 screen stranger_avatar:
     add im.Scale(avatar_files.get("Mysterious Stranger", "cache/images/placeholder.png"), 200, 300) at right_position
 
+# Screen for displaying generated scene images
+screen scene_image(image_path):
+    add im.Scale(image_path, config.screen_width, config.screen_height) at center_position
+
 # Python block for API calls, caching, and custom character class
 init python:
     import os
@@ -29,11 +37,9 @@ init python:
     import json
     import ssl
     import base64
+    import re
 
-    # Create an SSL context that doesn't verify certificates (for development only)
-    ssl_context = ssl.create_default_context()
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE
+
     # Dictionary to store avatar file paths, populated at runtime
     avatar_files = {}
 
@@ -53,12 +59,15 @@ init python:
         placeholder = os.path.join(root_dir, "images", "placeholder.png")
         if not os.path.exists(placeholder):
             print(f"Warning: {placeholder} doesn't exist. Create an images/placeholder.png file.")
-
+        # Create an SSL context that doesn't verify certificates (for development only)
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
 
         print("WARNING: SSL certificate verification disabled for development. This is not secure for production use.")
-        return text_dir, images_dir, placeholder, API_KEY
+        return text_dir, images_dir, placeholder, API_KEY, ssl_context
     
-    text_dir, images_dir, placeholder, API_KEY = init_settings()
+    text_dir, images_dir, placeholder, API_KEY, ssl_context = init_settings()
     
     # Define avatar prompts for each character
     avatar_prompts = {
@@ -169,6 +178,14 @@ init python:
 
     loading_screen = fetch_image("Fun loading screen wall paper for a medieval rpg")
     loading_screen = get_image(loading_screen)
+
+    # Function to display scene images
+    def show_scene_image(image_path):
+        if image_path:
+            relative_path = get_image(image_path)
+            renpy.show_screen("scene_image", image_path=relative_path)
+        else:
+            renpy.hide_screen("scene_image")
 
 # Define characters
 define p = Character("Player")
@@ -311,7 +328,7 @@ label forest:
         "It's too dark to go further. You need a light source."
         hide screen stranger_avatar
         jump town_square
-        
+
     hide screen stranger_avatar
 
 label explore_new_area:
