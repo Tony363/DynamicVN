@@ -1,4 +1,4 @@
-﻿# Define transforms for positioning avatars
+# Define transforms for positioning avatars
 init:
     transform left_position:
         xalign 0.0
@@ -217,7 +217,16 @@ screen say(who, what):
 
 # Define the loading screen
 screen loading:
-    add im.Scale(loading_screen, config.screen_width, config.screen_height)
+    # Use a default loading image if loading_screen is not defined
+    $ loading_bg = loading_screen if 'loading_screen' in globals() else "cache/images/image_Fun_loading_screen_wall_paper_for.png"
+    add im.Scale(loading_bg, config.screen_width, config.screen_height)
+    
+    # Add a loading indicator
+    frame:
+        align (0.5, 0.5)
+        padding (20, 20)
+        background "#00000080"
+        text "Loading..." size 40 color "#ffffff"
 
 # Game start
 label start:
@@ -375,5 +384,3 @@ label meet_stranger:
     m "[stranger_text]"
     "The stranger vanishes, leaving you with a sense of purpose."
     jump AutoScript
-    # "To be continued..."
-    # return
