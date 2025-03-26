@@ -231,7 +231,7 @@ screen loading:
 # Game start
 label start:
     show screen loading
-    
+    scene expression loading_screen
     # Generate avatars
     $ player_avatar_path = fetch_image(avatar_prompts["player"])
     $ shopkeeper_avatar_path = fetch_image(avatar_prompts["shopkeeper"])
