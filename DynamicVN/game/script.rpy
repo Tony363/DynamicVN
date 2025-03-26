@@ -25,6 +25,9 @@ screen villager_avatar:
 screen stranger_avatar:
     add im.Scale(avatar_files.get("Mysterious Stranger", "cache/images/placeholder.png"), 200, 300) at right_position
 
+screen partner_avatar(avatar_files):
+    add im.Scale(avatar_files.get("Partner", "cache/images/placeholder.png"), 200, 300) at right_position
+
 # Screen for displaying generated scene images
 screen scene_image(image_path):
     add im.Scale(image_path, config.screen_width, config.screen_height) at center_position
